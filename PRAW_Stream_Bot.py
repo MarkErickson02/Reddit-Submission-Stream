@@ -1,15 +1,22 @@
-import praw
-import config
-import time
 from praw.exceptions import PRAWException
-from prawcore.exceptions import PrawcoreException
-from matplotlib import pyplot as plt
+import DictionaryUtility
+import UserStatistics
+import config
+import praw
+import time
 
 
 class StreamBot:
 
-    posts = {}
-    reddit = None
+    _posts = {}
+    _reddit = None
+    _user_stats = None
+    _utility = None
+
+    def __init__(self):
+        self._utility = DictionaryUtility.DictionaryUtility()
+        self._user_stats = UserStatistics.UserStatistics()
+        self.authenticate()
 
     def authenticate(self):
         reddit = praw.Reddit(client_id=config.client_id,
@@ -18,11 +25,33 @@ class StreamBot:
                              username=config.username,
                              password=config.password
                              )
-        self.reddit = reddit
+        self._reddit = reddit
 
-    def monitor_subreddit(self):
+    def check_background_of_posters(self, submission_id):
+
         start_timer = time.clock()
-        subreddit = self.reddit.subreddit('all')
+        user_submission_frequency = []
+        submission = self._reddit.submission(submission_id)
+        user_submission_frequency.append(self._user_stats.check_user_submissions(submission.author))
+        end_timer = time.clock()
+        submission.comments.replace_more(limit=0)
+        print("Fetch and replace comments time: ", end_timer - start_timer)
+        comments = submission.comments.list()
+        for comment in comments:
+            user_submission_frequency.append(self._user_stats.check_user_submissions(comment.author))
+        end_timer = time.clock()
+        print("put comments in dictionary time: ", end_timer - start_timer)
+        combined_submission_dict = {}
+        for user_dict in user_submission_frequency:
+            combined_submission_dict.update(user_dict)
+        end_timer = time.clock()
+        print("Combining dictionaries time: ", end_timer - start_timer)
+        self._utility.sort_and_print_dict(combined_submission_dict, limit=len(combined_submission_dict))
+        self._utility.bar_graph_total_submission(combined_submission_dict)
+
+    def monitor_subreddit(self, included_nsfw=True, show_stream=True):
+        start_timer = time.clock()
+        subreddit = self._reddit.subreddit('all')
         for submissions in subreddit.stream.submissions():
             try:
                 if submissions.author is None:
@@ -30,70 +59,45 @@ class StreamBot:
                 if submissions.subreddit is None:
                     print("Subreddit not found")
                 else:
-                    print(submissions.author, " submitted ", submissions.title, " to ", submissions.subreddit)
-                    self.check_user_stats(submissions.author)
-                    self.add_posts_to_dictionary(submissions.subreddit, start_timer)
+                    if included_nsfw is False and submissions.over_18:
+                        print("censored")
+                        continue
+                    if show_stream is True:
+                        print(submissions.author, " submitted ", submissions.title, " to ", submissions.subreddit)
+                        self._user_stats.check_user_submissions(submissions.author)
+                        self.add_posts_to_dictionary(submissions.subreddit, start_timer)
             except PRAWException as err:
                 print("Error detected: ", err)
-            except KeyboardInterrupt:
-                break
-        self.choose_next_action()
 
     def choose_next_action(self):
-        user_action = input("Press g to graph, s to stream more data or p to print the entire dictionary")
+        user_action = input("Press g to graph, s to stream more data, p to print data, b to stream in background: ")
         user_action.lower()
         if user_action == 'g':
-            self.graph_total_posts()
+            self._utility.bar_graph_total_submission(self._posts)
         if user_action == 's':
             self.monitor_subreddit()
+        if user_action == 'p':
+            self._utility.sort_and_print_dict(len(self._posts))
+        if user_action == 'b':
+            self.monitor_subreddit(show_stream=False)
         else:
             print("Value not recognized")
 
     def add_posts_to_dictionary(self, subreddit, start_timer):
-        if not (self.posts.get(subreddit)):
-            self.posts[subreddit] = 1
+        if not (self._posts.get(subreddit)):
+            self._posts[subreddit] = 1
         else:
-            self.posts[subreddit] += 1
+            self._posts[subreddit] += 1
         end_timer = time.clock()
-        self.sort_and_print_dict(self.posts)
+        self._utility.sort_and_print_dict(self._posts)
         print(end_timer - start_timer)
-
-    def check_user_stats(self, user):
-        user_posts = {}
-        try:
-            for submission in user.submissions.top('all'):
-                if not (user_posts.get(submission.subreddit)):
-                    user_posts[submission.subreddit] = 1
-                else:
-                    user_posts[submission.subreddit] += 1
-            self.sort_and_print_dict(user_posts)
-        except PRAWException as err:
-            print(err)
-        except PrawcoreException as err:
-            print(err)
-
-    @staticmethod
-    def sort_and_print_dict(user_posts):
-        sorted_dict_values = reversed(sorted(user_posts.items(), key=lambda kv: kv[1]))
-        count = 0
-        for sub_name, posts in sorted_dict_values:
-            if count < 1:
-                print("Sub: {}, # of Posts: {}".format(sub_name, posts))
-            count += 1
-
-    def graph_total_posts(self):
-        plt.bar(str(self.posts.values), str(self.posts.keys))
-        plt.xlabel("Subreddits")
-        plt.ylabel("Posts")
-        for sub_name, posts in self.posts.items():
-            plt.plot(sub_name.display_name, posts)
-        plt.show()
 
 
 def main():
     bot = StreamBot()
-    bot.authenticate()
-    bot.monitor_subreddit()
+    sub_id = input("Enter id of submission: ")
+    bot.check_background_of_posters(sub_id)
+    # bot.choose_next_action()
 
 
 if __name__ == "__main__":
