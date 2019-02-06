@@ -27,6 +27,15 @@ class StreamBot:
                              )
         self._reddit = reddit
 
+    def check_background_of_user(self):
+        username = input("Search User: ")
+        reddit_user = self._reddit.redditor(username)
+        posts_dict = self._user_stats.check_user_submissions(reddit_user)
+        comment_dict = self._user_stats.check_user_comments(reddit_user)
+        # Merges the two dictionaries
+        combined = {**posts_dict, **comment_dict}
+        self._utility.sort_and_print_dict(combined, len(combined))
+
     def check_background_of_posters(self, submission_id):
 
         start_timer = time.clock()
@@ -38,6 +47,8 @@ class StreamBot:
         print("Fetch and replace comments time: ", end_timer - start_timer)
         comments = submission.comments.list()
         for comment in comments:
+            if comment.author is None:
+                continue
             user_submission_frequency.append(self._user_stats.check_user_submissions(comment.author))
         end_timer = time.clock()
         print("put comments in dictionary time: ", end_timer - start_timer)
@@ -47,7 +58,6 @@ class StreamBot:
         end_timer = time.clock()
         print("Combining dictionaries time: ", end_timer - start_timer)
         self._utility.sort_and_print_dict(combined_submission_dict, limit=len(combined_submission_dict))
-        self._utility.bar_graph_total_submission(combined_submission_dict)
 
     def monitor_subreddit(self, included_nsfw=True, show_stream=True):
         start_timer = time.clock()
@@ -98,6 +108,7 @@ def main():
     sub_id = input("Enter id of submission: ")
     bot.check_background_of_posters(sub_id)
     # bot.choose_next_action()
+    # bot.check_background_of_user()
 
 
 if __name__ == "__main__":
