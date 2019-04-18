@@ -8,15 +8,12 @@ import time
 
 class StreamBot:
 
-    _posts = {}
-    _reddit = None
-    _user_stats = None
-    _utility = None
-
     def __init__(self):
         self._utility = DictionaryUtility.DictionaryUtility()
         self._user_stats = UserStatistics.UserStatistics()
+        self._reddit = None
         self.authenticate()
+        self._posts = {}
 
     def authenticate(self):
         reddit = praw.Reddit(client_id=config.client_id,
@@ -35,6 +32,11 @@ class StreamBot:
         # Merges the two dictionaries
         combined = {**posts_dict, **comment_dict}
         self._utility.sort_and_print_dict(combined, len(combined))
+
+    def check_user_words(self):
+        username = input("Search User: ")
+        reddit_user = self._reddit.redditor(username)
+        self._utility.print_word_freq_dict(self._user_stats.find_users_words(reddit_user))
 
     def check_background_of_posters(self, submission_id):
 
@@ -105,10 +107,11 @@ class StreamBot:
 
 def main():
     bot = StreamBot()
-    sub_id = input("Enter id of submission: ")
-    bot.check_background_of_posters(sub_id)
+    # sub_id = input("Enter id of submission: ")
+    # bot.check_background_of_posters(sub_id)
     # bot.choose_next_action()
     # bot.check_background_of_user()
+    bot.check_user_words()
 
 
 if __name__ == "__main__":

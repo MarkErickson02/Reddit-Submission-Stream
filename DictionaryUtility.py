@@ -13,6 +13,12 @@ class DictionaryUtility:
             count += 1
 
     @staticmethod
+    def print_word_freq_dict(user_words):
+        sorted_dict_values = reversed(sorted(user_words.items(), key=lambda kv: kv[1]))
+        for word, count in sorted_dict_values:
+            print("Word: {}, Frequency: {}".format(word, count))
+
+    @staticmethod
     def bar_graph_total_submission(dict_of_submissions):
         plt.bar(range(len(dict_of_submissions)), list(dict_of_submissions.values()), align="center")
         plt.xlabel("Subreddits")

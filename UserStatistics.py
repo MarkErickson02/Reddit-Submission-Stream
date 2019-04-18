@@ -29,3 +29,24 @@ class UserStatistics:
         except PrawcoreException as err:
             print(err)
         return user_submissions
+
+    def find_users_words(self, user):
+        user_words = {}
+        try:
+            for submission in user.submissions.top('all'):
+                for word in submission.title.split():
+                    if not (user_words.get(word)):
+                        user_words[word] = 1
+                    else:
+                        user_words[word] += 1
+            for comment in user.comments.top('all'):
+                for word in comment.body.split():
+                    if not (user_words.get(word)):
+                        user_words[word] = 1
+                    else:
+                        user_words[word] += 1
+        except PRAWException as err:
+            print(err)
+        except PrawcoreException as err:
+            print(err)
+        return user_words
